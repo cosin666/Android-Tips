@@ -23,7 +23,7 @@
 
 ### 整体设计 ###
 
-![image](https://raw.githubusercontent.com/newsky2012/Android-Tips/master/Glide%E7%AE%80%E6%9E%90/imgs/2.jpg)
+![image](https://raw.githubusercontent.com/newsky2012/Android-Tips/master/Glide%E7%AE%80%E6%9E%90/imgs/1.png)
 
 1. Glide 收到加载及显示资源的任务，创建**Request**并将它交给**RequestManager**（任务管理器），
 2. Request启动**Engine**（数据获取引擎）去数据源获取资源，
@@ -330,7 +330,7 @@ RequestManager实现了LifecycleListener接口，在初始化的时候会将自�
     }
 
 一张图总结
-![avatar](\imgs\2.jpg)
+![image](https://raw.githubusercontent.com/newsky2012/Android-Tips/master/Glide%E7%AE%80%E6%9E%90/imgs/2.jpg)
 
 - load方法
 
