@@ -23,7 +23,7 @@
 
 ### 整体设计 ###
 
-![avatar](\imgs\1.png)
+![image](https://raw.githubusercontent.com/newsky2012/Android-Tips/master/Glide%E7%AE%80%E6%9E%90/imgs/2.jpg)
 
 1. Glide 收到加载及显示资源的任务，创建**Request**并将它交给**RequestManager**（任务管理器），
 2. Request启动**Engine**（数据获取引擎）去数据源获取资源，
@@ -448,93 +448,97 @@ into方法设置Target，Glide会将资源加载到Target中，加载时会取�
 
 Request请求是如何管理的？  RequestManager
 
-public final class GenericRequest<A, T, Z, R> implements Request, SizeReadyCallback,
-    ResourceCallback {
-    private static final String TAG = "GenericRequest";
-    private static final Queue<GenericRequest<?, ?, ?, ?>> REQUEST_POOL = Util.createQueue(0);
-    private static final double TO_MEGABYTE = 1d / (1024d * 1024d);
-
-    private enum Status {
-        /** Created but not yet running. */
-        PENDING,
-        /** In the process of fetching media. */
-        RUNNING,
-        /** Waiting for a callback given to the Target to be called to determine target dimensions. */
-        WAITING_FOR_SIZE,
-        /** Finished loading media successfully. */
-        COMPLETE,
-        /** Failed to load media, may be restarted. */
-        FAILED,
-        /** Cancelled by the user, may not be restarted. */
-        CANCELLED,
-        /** Cleared by the user with a placeholder set, may not be restarted. */
-        CLEARED,
-        /** Temporarily paused by the system, may be restarted. */
-        PAUSED,
-    }
-
-    ...
-
-    @Override
-    public void begin() {
-        startTime = LogTime.getLogTime();
-        if (model == null) {
-            onException(null);
-            return;
-        }
-
-        status = Status.WAITING_FOR_SIZE;
-        if (Util.isValidDimensions(overrideWidth, overrideHeight)) {
-            onSizeReady(overrideWidth, overrideHeight);
-        } else {
-            target.getSize(this);               //  测量完后调用onSizeReady↖
-        }
-
-        if (!isComplete() && !isFailed() && canNotifyStatusChanged()) {
-            target.onLoadStarted(getPlaceholderDrawable());         // 显示默认图
-        }
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            logV("finished run method in " + LogTime.getElapsedMillis(startTime));
-        }
-    }
-
-    ...
+    public final class GenericRequest<A, T, Z, R> implements Request, SizeReadyCallback,
+        ResourceCallback {
+        private static final String TAG = "GenericRequest";
+        private static final Queue<GenericRequest<?, ?, ?, ?>> REQUEST_POOL = Util.createQueue(0);
+        private static final double TO_MEGABYTE = 1d / (1024d * 1024d);
     
-    /**
-     * A callback method that should never be invoked directly.
-     */
-    @Override
-    public void onSizeReady(int width, int height) {
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            logV("Got onSizeReady in " + LogTime.getElapsedMillis(startTime));
+        private enum Status {
+            /** Created but not yet running. */
+            PENDING,
+            /** In the process of fetching media. */
+            RUNNING,
+            /** Waiting for a callback given to the Target to be called to determine target dimensions. */
+            WAITING_FOR_SIZE,
+            /** Finished loading media successfully. */
+            COMPLETE,
+            /** Failed to load media, may be restarted. */
+            FAILED,
+            /** Cancelled by the user, may not be restarted. */
+            CANCELLED,
+            /** Cleared by the user with a placeholder set, may not be restarted. */
+            CLEARED,
+            /** Temporarily paused by the system, may be restarted. */
+            PAUSED,
         }
-        if (status != Status.WAITING_FOR_SIZE) {
-            return;
+    
+        ...
+    
+        @Override
+        public void begin() {
+            startTime = LogTime.getLogTime();
+            if (model == null) {
+                onException(null);
+                return;
+            }
+    
+            status = Status.WAITING_FOR_SIZE;
+            if (Util.isValidDimensions(overrideWidth, overrideHeight)) {
+                onSizeReady(overrideWidth, overrideHeight);
+            } else {
+                target.getSize(this);               //  测量完后调用onSizeReady↖
+            }
+    
+            if (!isComplete() && !isFailed() && canNotifyStatusChanged()) {
+                target.onLoadStarted(getPlaceholderDrawable());         // 显示默认图
+            }
+            if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                logV("finished run method in " + LogTime.getElapsedMillis(startTime));
+            }
         }
-        status = Status.RUNNING;
+    
+        ...
+        
+        /**
+         * A callback method that should never be invoked directly.
+         */
+        @Override
+        public void onSizeReady(int width, int height) {
+            if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                logV("Got onSizeReady in " + LogTime.getElapsedMillis(startTime));
+            }
+            if (status != Status.WAITING_FOR_SIZE) {
+                return;
+            }
+            status = Status.RUNNING;
+    
+            width = Math.round(sizeMultiplier * width);
+            height = Math.round(sizeMultiplier * height);
+    
+            ModelLoader<A, T> modelLoader = loadProvider.getModelLoader();
+            final DataFetcher<T> dataFetcher = modelLoader.getResourceFetcher(model, width, height);
+    
+            if (dataFetcher == null) {
+                onException(new Exception("Failed to load model: \'" + model + "\'"));
+                return;
+            }
+            ResourceTranscoder<Z, R> transcoder = loadProvider.getTranscoder();
+            if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                logV("finished setup for calling load in " + LogTime.getElapsedMillis(startTime));
+            }
+            loadedFromMemoryCache = true;
+            // 加载
+            loadStatus = engine.load(signature, width, height, dataFetcher, loadProvider, transformation, transcoder,
+                    priority, isMemoryCacheable, diskCacheStrategy, this);
+            loadedFromMemoryCache = resource != null;
+            if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                logV("finished onSizeReady in " + LogTime.getElapsedMillis(startTime));
+            }
+        }
 
-        width = Math.round(sizeMultiplier * width);
-        height = Math.round(sizeMultiplier * height);
+        ...
 
-        ModelLoader<A, T> modelLoader = loadProvider.getModelLoader();
-        final DataFetcher<T> dataFetcher = modelLoader.getResourceFetcher(model, width, height);
-
-        if (dataFetcher == null) {
-            onException(new Exception("Failed to load model: \'" + model + "\'"));
-            return;
-        }
-        ResourceTranscoder<Z, R> transcoder = loadProvider.getTranscoder();
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            logV("finished setup for calling load in " + LogTime.getElapsedMillis(startTime));
-        }
-        loadedFromMemoryCache = true;
-        // 加载
-        loadStatus = engine.load(signature, width, height, dataFetcher, loadProvider, transformation, transcoder,
-                priority, isMemoryCacheable, diskCacheStrategy, this);
-        loadedFromMemoryCache = resource != null;
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            logV("finished onSizeReady in " + LogTime.getElapsedMillis(startTime));
-        }
     }
 
 创建线程后台加载图片
